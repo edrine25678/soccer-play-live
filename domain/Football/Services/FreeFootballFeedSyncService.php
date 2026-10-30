@@ -455,6 +455,75 @@ final class FreeFootballFeedSyncService
     }
 
     /**
+     * Source 4: API-Football (api-football.com / RapidAPI).
+     * 100 free requests/day. Supports live scoreboards, match stats, and venues.
+     */
+    public function syncFromApiFootball(?string $apiKey = null, ?string $season = '2024', int $limit = 40, bool $keepDates = false): int
+    {
+        $apiKey = $apiKey ?: (string) config('football.api_football_key');
+        $host = (string) (config('football.api_football_host') ?: 'v3.football.api-sports.io');
+
+        if (! $apiKey) {
+            throw new \InvalidArgumentException('An API-Football key is required. Set API_FOOTBALL_KEY in your .env (Free key at https://www.api-football.com)');
+        }
+
+        $headers = [];
+        if (str_contains($host, 'rapidapi.com')) {
+            $headers = [
+                'x-rapidapi-key' => $apiKey,
+                'x-rapidapi-host' => $host,
+            ];
+            $url = "https://{$host}/v3/fixtures?league=39&season={$season}";
+        } else {
+            $headers = [
+                'x-apisports-key' => $apiKey,
+            ];
+            $url = "https://{$host}/fixtures?league=39&season={$season}";
+        }
+
+        $response = Http::withHeaders($headers)
+            ->timeout(15)
+            ->get($url);
+
+        if (! $response->successful()) {
+            throw new \RuntimeException('Failed to fetch from API-Football: '.$response->body());
+        }
+
+        $fixtures = $response->json('response') ?? [];
+        $rawMatches = [];
+
+        foreach (array_slice($fixtures, 0, $limit) as $item) {
+            $homeName = $item['teams']['home']['name'] ?? '';
+            $awayName = $item['teams']['away']['name'] ?? '';
+
+            if (! $homeName || ! $awayName) {
+                continue;
+            }
+
+            $dateString = $item['fixture']['date'] ?? now()->toIso8601String();
+            $startsAt = Carbon::parse($dateString);
+
+            $homeScore = is_numeric($item['goals']['home'] ?? null) ? (int) $item['goals']['home'] : null;
+            $awayScore = is_numeric($item['goals']['away'] ?? null) ? (int) $item['goals']['away'] : null;
+
+            $rawMatches[] = [
+                'home' => $homeName,
+                'away' => $awayName,
+                'home_tla' => null,
+                'away_tla' => null,
+                'date' => $startsAt->toDateString(),
+                'time' => $startsAt->toTimeString(),
+                'home_score' => $homeScore,
+                'away_score' => $awayScore,
+                'venue' => $item['fixture']['venue']['name'] ?? null,
+                'video_url' => null,
+            ];
+        }
+
+        return $this->importNormalizedMatches($rawMatches, $keepDates);
+    }
+
+    /**
      * Imports and normalizes matches.
      * Enforces STRICT Premier League team validation: any non-PL team is ignored.
      */

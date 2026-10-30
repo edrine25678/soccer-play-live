@@ -9,9 +9,9 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Artisan::command('football:sync 
-    {--source=all : API provider: all, thesportsdb, openfootball, or football-data} 
-    {--season= : Season (e.g. 2024-2025 for TheSportsDB or 2024-25 / 2025-26 for OpenFootball)} 
-    {--key= : API key for football-data.org} 
+    {--source=all : API provider: all, football-data, api-football, thesportsdb, or openfootball} 
+    {--season= : Season (e.g. 2024 / 2024-25 for OpenFootball/API-Football, 2024-2025 for TheSportsDB)} 
+    {--key= : API key for football-data.org or api-football.com} 
     {--limit=30 : Maximum number of matches to import} 
     {--keep-dates : Keep exact raw calendar dates without active matchday projection}
     {--highlights : Fetch video highlights from TheSportsDB eventshighlights.php}
@@ -40,13 +40,22 @@ function (FreeFootballFeedSyncService $syncService) {
         $total = 0;
 
         if ($source === 'football-data') {
-            $apiKey = (string) ($this->option('key') ?: env('FOOTBALL_DATA_API_KEY'));
+            $apiKey = (string) ($this->option('key') ?: config('football.football_data_api_key'));
             if (! $apiKey) {
                 $this->error('Missing API key! Provide --key=YOUR_KEY or set FOOTBALL_DATA_API_KEY in .env');
                 $this->line('Get a free key at: https://www.football-data.org/client/register');
                 return 1;
             }
             $total = $syncService->syncFromFootballData($apiKey, $limit, $keepDates);
+        } elseif ($source === 'api-football') {
+            $apiKey = (string) ($this->option('key') ?: config('football.api_football_key'));
+            if (! $apiKey) {
+                $this->error('Missing API key! Provide --key=YOUR_KEY or set API_FOOTBALL_KEY in .env');
+                $this->line('Get a free key at: https://www.api-football.com');
+                return 1;
+            }
+            $season = (string) ($this->option('season') ?: '2024');
+            $total = $syncService->syncFromApiFootball($apiKey, $season, $limit, $keepDates);
         } elseif ($source === 'openfootball') {
             $season = (string) ($this->option('season') ?: '2024-25');
             $total = $syncService->syncFromOpenFootball($season, $limit, $keepDates);
@@ -54,12 +63,17 @@ function (FreeFootballFeedSyncService $syncService) {
             $season = (string) ($this->option('season') ?: '2024-2025');
             $total = $syncService->syncFromTheSportsDb($season, $limit, $keepDates);
         } else {
-            // Default: sync both OpenFootball and TheSportsDB
-            $this->line('-> Syncing real clubs and fixtures from OpenFootball (GitHub Open Data)...');
-            $count1 = $syncService->syncFromOpenFootball('2024-25', $limit, $keepDates);
-            $this->line("   Synced {$count1} matches.");
-
-            $total = $count1;
+            // Auto-detect configured API key with prioritized fallback
+            if (config('football.football_data_api_key')) {
+                $this->line('-> Syncing from configured football-data.org API key...');
+                $total = $syncService->syncFromFootballData(config('football.football_data_api_key'), $limit, $keepDates);
+            } elseif (config('football.api_football_key')) {
+                $this->line('-> Syncing from configured API-Football key...');
+                $total = $syncService->syncFromApiFootball(config('football.api_football_key'), '2024', $limit, $keepDates);
+            } else {
+                $this->line('-> Syncing official 2024-25 Premier League clubs and fixtures from OpenFootball...');
+                $total = $syncService->syncFromOpenFootball('2024-25', $limit, $keepDates);
+            }
         }
 
         $this->info("✓ Successfully synced {$total} real Premier League matches into Touchline!");
@@ -69,4 +83,4 @@ function (FreeFootballFeedSyncService $syncService) {
         $this->error('Sync failed: ' . $e->getMessage());
         return 1;
     }
-})->purpose('Fetch and sync live or scheduled Premier League fixtures and highlights from free sports APIs');
+})->purpose('Fetch and sync live or scheduled Premier League fixtures and highlights from football-data.org, API-Football, OpenFootball, or TheSportsDB');

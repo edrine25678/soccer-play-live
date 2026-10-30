@@ -40,32 +40,53 @@ Open the address printed by `php artisan serve` (normally `http://127.0.0.1:8000
 
 The seed command creates explicitly labelled example Premier League fixtures and one example result. Fixture dates are relative to the day the database is seeded. Seeded scores and schedules are not current real-world data.
 
-## Syncing Real Fixtures with Free & Open APIs
+## Syncing Real Fixtures with Football APIs
 
-You can pull real Premier League fixtures into Touchline using free sports data sources:
+You can pull real Premier League fixtures into Touchline using any of the following verified providers:
 
-1. **TheSportsDB (Free community tier - Zero configuration required):**
-   ```powershell
-   php artisan football:sync --source=thesportsdb
-   ```
-   Immediately fetches real Premier League fixtures and team data without needing an API key.
+1. **football-data.org (Free Tier - 10 requests / min):**
+   - Free API Key via [Instant Signup](https://www.football-data.org/client/register)
+   - Add your key to `.env`:
+     ```env
+     FOOTBALL_DATA_API_KEY=your_football_data_token_here
+     ```
+   - Run sync:
+     ```powershell
+     php artisan football:sync --source=football-data
+     ```
 
-2. **OpenFootball (GitHub Open Data - Public domain, zero rate limits):**
+2. **API-Football / RapidAPI (Free Tier - 100 requests / day):**
+   - Free API Key via [API-Football](https://www.api-football.com) or RapidAPI
+   - Add your key to `.env`:
+     ```env
+     API_FOOTBALL_KEY=your_api_sports_or_rapidapi_key_here
+     API_FOOTBALL_HOST=v3.football.api-sports.io
+     ```
+   - Run sync:
+     ```powershell
+     php artisan football:sync --source=api-football
+     ```
+
+3. **OpenFootball (GitHub Open Data - Zero configuration required):**
    ```powershell
    php artisan football:sync --source=openfootball
    ```
-   Syncs full season schedules (2024-25 and 2025-26) with venues, scores, and matchday rounds.
+   Syncs full 2024-25 Premier League season fixtures with venues and matchday rounds directly from public domain open data.
 
-3. **Sync Video Highlights (TheSportsDB):**
+4. **TheSportsDB (Free Community API & Video Highlights):**
    ```powershell
+   # Sync fixtures & past match results
+   php artisan football:sync --source=thesportsdb
+
+   # Sync official YouTube video highlights for any date
    php artisan football:sync --highlights --date=2024-05-19
    ```
-   Attaches official YouTube video highlights and watch links directly to match centre cards.
 
-4. **Sync All Free Sources:**
+5. **Auto-Detect / Sync All:**
    ```powershell
    php artisan football:sync --source=all
    ```
+   Automatically uses `football-data.org` or `API-Football` if configured in `.env`, falling back smoothly to OpenFootball and TheSportsDB.
 
 ## Connecting a real fixture provider
 
