@@ -56,7 +56,13 @@ You can pull real Premier League fixtures into Touchline using free sports data 
    ```
    Syncs full season schedules (2024-25 and 2025-26) with venues, scores, and matchday rounds.
 
-3. **Sync All Free Sources:**
+3. **Sync Video Highlights (TheSportsDB):**
+   ```powershell
+   php artisan football:sync --highlights --date=2024-05-19
+   ```
+   Attaches official YouTube video highlights and watch links directly to match centre cards.
+
+4. **Sync All Free Sources:**
    ```powershell
    php artisan football:sync --source=all
    ```

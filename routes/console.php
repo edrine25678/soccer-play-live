@@ -8,13 +8,35 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Artisan::command('football:sync {--source=all : API provider: all, thesportsdb, openfootball, or football-data} {--season= : Season (e.g. 2024-2025 for TheSportsDB or 2024-25 / 2025-26 for OpenFootball)} {--key= : API key for football-data.org} {--limit=30 : Maximum number of matches to import} {--keep-dates : Keep exact raw calendar dates without active matchday projection}', function (FreeFootballFeedSyncService $syncService) {
+Artisan::command('football:sync 
+    {--source=all : API provider: all, thesportsdb, openfootball, or football-data} 
+    {--season= : Season (e.g. 2024-2025 for TheSportsDB or 2024-25 / 2025-26 for OpenFootball)} 
+    {--key= : API key for football-data.org} 
+    {--limit=30 : Maximum number of matches to import} 
+    {--keep-dates : Keep exact raw calendar dates without active matchday projection}
+    {--highlights : Fetch video highlights from TheSportsDB eventshighlights.php}
+    {--date= : Specific date for highlights (YYYY-MM-DD)}
+    {--league=4328 : League ID filter for highlights (4328 is Premier League)}
+    {--sport=Soccer : Sport filter for highlights (e.g. Soccer, Motorsport)}', 
+function (FreeFootballFeedSyncService $syncService) {
     $source = strtolower((string) $this->option('source'));
     $limit = (int) $this->option('limit');
     $keepDates = (bool) $this->option('keep-dates');
-    $this->info("Fetching and syncing real Premier League fixtures from [{$source}]...");
+    $wantHighlights = (bool) $this->option('highlights');
+    $date = (string) $this->option('date');
+    $league = (string) $this->option('league');
+    $sport = (string) $this->option('sport');
 
     try {
+        if ($wantHighlights) {
+            $highlightDate = $date ?: now()->subDay()->toDateString();
+            $this->info("Fetching video highlights from TheSportsDB for date [{$highlightDate}], league [{$league}], sport [{$sport}]...");
+            $count = $syncService->syncHighlights($highlightDate, $league, $sport);
+            $this->info("✓ Successfully attached {$count} video highlights into Touchline match centre!");
+            return 0;
+        }
+
+        $this->info("Fetching and syncing real Premier League fixtures from [{$source}]...");
         $total = 0;
 
         if ($source === 'football-data') {
@@ -47,4 +69,4 @@ Artisan::command('football:sync {--source=all : API provider: all, thesportsdb, 
         $this->error('Sync failed: ' . $e->getMessage());
         return 1;
     }
-})->purpose('Fetch and sync live or scheduled Premier League fixtures from free football APIs');
+})->purpose('Fetch and sync live or scheduled Premier League fixtures and highlights from free sports APIs');

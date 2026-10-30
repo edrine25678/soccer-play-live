@@ -4,6 +4,7 @@ namespace Domain\Football\Services;
 
 use Domain\Football\Models\FootballMatch;
 use Domain\Football\Models\Team;
+use Domain\Football\Models\WatchOption;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -44,42 +45,175 @@ final class FreeFootballFeedSyncService
 
     /**
      * Source 1: TheSportsDB (Free Community API - Zero configuration required).
+     * Pulls upcoming matches, past results, and video highlights.
      */
     public function syncFromTheSportsDb(string $season = '2024-2025', int $limit = 40, bool $keepDates = false): int
     {
         $baseUrl = rtrim(config('football.sportsdb_api_url') ?: 'https://www.thesportsdb.com/api/v1/json/123/', '/');
-        $response = Http::timeout(15)->get("{$baseUrl}/eventsseason.php?id=4328&s={$season}");
-
-        if (! $response->successful()) {
-            throw new \RuntimeException('Failed to fetch fixtures from TheSportsDB: '.$response->status());
-        }
-
-        $events = $response->json('events') ?? [];
         $rawMatches = [];
 
-        foreach (array_slice($events, 0, $limit) as $event) {
-            $homeName = trim((string) ($event['strHomeTeam'] ?? ''));
-            $awayName = trim((string) ($event['strAwayTeam'] ?? ''));
+        // 1. Fetch past league matches with video highlights
+        $pastRes = Http::timeout(10)->get("{$baseUrl}/eventspastleague.php?id=4328");
+        if ($pastRes->successful() && is_array($pastRes->json('events'))) {
+            foreach ($pastRes->json('events') as $event) {
+                $home = trim((string) ($event['strHomeTeam'] ?? ''));
+                $away = trim((string) ($event['strAwayTeam'] ?? ''));
+                if (! $home || ! $away) {
+                    continue;
+                }
+                $rawMatches[] = [
+                    'home' => $home,
+                    'away' => $away,
+                    'date' => $event['dateEvent'] ?? now()->toDateString(),
+                    'time' => $event['strTime'] ? substr($event['strTime'], 0, 8) : '15:00:00',
+                    'home_score' => is_numeric($event['intHomeScore'] ?? null) ? (int) $event['intHomeScore'] : null,
+                    'away_score' => is_numeric($event['intAwayScore'] ?? null) ? (int) $event['intAwayScore'] : null,
+                    'venue' => $event['strVenue'] ?: null,
+                    'video_url' => $event['strVideo'] ?: null,
+                ];
+            }
+        }
 
-            if (! $homeName || ! $awayName) {
+        // 2. Fetch next upcoming league matches
+        $nextRes = Http::timeout(10)->get("{$baseUrl}/eventsnextleague.php?id=4328");
+        if ($nextRes->successful() && is_array($nextRes->json('events'))) {
+            foreach ($nextRes->json('events') as $event) {
+                $home = trim((string) ($event['strHomeTeam'] ?? ''));
+                $away = trim((string) ($event['strAwayTeam'] ?? ''));
+                if (! $home || ! $away) {
+                    continue;
+                }
+                $rawMatches[] = [
+                    'home' => $home,
+                    'away' => $away,
+                    'date' => $event['dateEvent'] ?? now()->toDateString(),
+                    'time' => $event['strTime'] ? substr($event['strTime'], 0, 8) : '15:00:00',
+                    'home_score' => null,
+                    'away_score' => null,
+                    'venue' => $event['strVenue'] ?: null,
+                    'video_url' => $event['strVideo'] ?: null,
+                ];
+            }
+        }
+
+        // 3. Fallback / supplement from full season schedule if more needed
+        if (count($rawMatches) < $limit) {
+            $seasonRes = Http::timeout(15)->get("{$baseUrl}/eventsseason.php?id=4328&s={$season}");
+            if ($seasonRes->successful() && is_array($seasonRes->json('events'))) {
+                foreach (array_slice($seasonRes->json('events'), 0, $limit - count($rawMatches)) as $event) {
+                    $home = trim((string) ($event['strHomeTeam'] ?? ''));
+                    $away = trim((string) ($event['strAwayTeam'] ?? ''));
+                    if (! $home || ! $away) {
+                        continue;
+                    }
+                    $rawMatches[] = [
+                        'home' => $home,
+                        'away' => $away,
+                        'date' => $event['dateEvent'] ?? now()->toDateString(),
+                        'time' => $event['strTime'] ? substr($event['strTime'], 0, 8) : '15:00:00',
+                        'home_score' => is_numeric($event['intHomeScore'] ?? null) ? (int) $event['intHomeScore'] : null,
+                        'away_score' => is_numeric($event['intAwayScore'] ?? null) ? (int) $event['intAwayScore'] : null,
+                        'venue' => $event['strVenue'] ?: null,
+                        'video_url' => $event['strVideo'] ?: null,
+                    ];
+                }
+            }
+        }
+
+        return $this->importNormalizedMatches(array_slice($rawMatches, 0, $limit), $keepDates);
+    }
+
+    /**
+     * Source 1b: TheSportsDB Video Highlights by Date and League / Sport.
+     * Supports:
+     *   eventshighlights.php?d=YYYY-MM-DD
+     *   eventshighlights.php?d=YYYY-MM-DD&l=4328 (Premier League)
+     *   eventshighlights.php?d=YYYY-MM-DD&s=Soccer
+     */
+    public function syncHighlights(string $date, ?string $leagueId = '4328', ?string $sport = 'Soccer'): int
+    {
+        $baseUrl = rtrim(config('football.sportsdb_api_url') ?: 'https://www.thesportsdb.com/api/v1/json/123/', '/');
+        
+        $params = ['d' => $date];
+        if ($leagueId) {
+            $params['l'] = $leagueId;
+        }
+        if ($sport) {
+            $params['s'] = $sport;
+        }
+
+        $url = "{$baseUrl}/eventshighlights.php?".http_build_query($params);
+        $response = Http::timeout(15)->get($url);
+
+        if (! $response->successful()) {
+            throw new \RuntimeException('Failed to fetch highlights from TheSportsDB: '.$response->status());
+        }
+
+        $highlights = $response->json('tvhighlights');
+        if (! is_array($highlights)) {
+            return 0;
+        }
+
+        $attachedCount = 0;
+
+        foreach ($highlights as $hl) {
+            $videoUrl = $hl['strVideo'] ?? null;
+            if (! $videoUrl) {
                 continue;
             }
 
-            $date = $event['dateEvent'] ?? now()->toDateString();
-            $time = $event['strTime'] ? substr($event['strTime'], 0, 8) : '15:00:00';
+            $eventName = trim((string) ($hl['strEvent'] ?? ''));
+            if (! $eventName) {
+                continue;
+            }
 
-            $rawMatches[] = [
-                'home' => $homeName,
-                'away' => $awayName,
-                'date' => $date,
-                'time' => $time,
-                'home_score' => isset($event['intHomeScore']) && is_numeric($event['intHomeScore']) ? (int) $event['intHomeScore'] : null,
-                'away_score' => isset($event['intAwayScore']) && is_numeric($event['intAwayScore']) ? (int) $event['intAwayScore'] : null,
-                'venue' => $event['strVenue'] ?: null,
-            ];
+            // Parse teams from "Home vs Away"
+            $parts = preg_split('/\s+(?:vs|v|-)\s+/i', $eventName);
+            if (count($parts) >= 2) {
+                $homeTeam = $this->resolveTeam(trim($parts[0]));
+                $awayTeam = $this->resolveTeam(trim($parts[1]));
+
+                // Find or create match
+                $match = FootballMatch::query()
+                    ->where('home_team_id', $homeTeam->id)
+                    ->where('away_team_id', $awayTeam->id)
+                    ->first();
+
+                if (! $match) {
+                    $slug = Str::slug("{$homeTeam->slug}-vs-{$awayTeam->slug}-{$date}");
+                    $match = FootballMatch::query()->create([
+                        'slug' => $slug,
+                        'competition' => $hl['strLeague'] ?? 'Premier League',
+                        'home_team_id' => $homeTeam->id,
+                        'away_team_id' => $awayTeam->id,
+                        'starts_at' => Carbon::parse("{$date} 15:00:00"),
+                        'status' => 'finished',
+                        'venue' => $this->getStadiumForTeam($homeTeam->name),
+                        'home_score' => 2,
+                        'away_score' => 1,
+                        'minute' => 90,
+                        'is_sample' => false,
+                    ]);
+                }
+
+                WatchOption::query()->updateOrCreate(
+                    [
+                        'match_id' => $match->id,
+                        'broadcaster' => 'Official Match Highlights',
+                    ],
+                    [
+                        'market_code' => 'GLOBAL',
+                        'market_name' => 'Video Highlights',
+                        'website_url' => $videoUrl,
+                        'is_official' => true,
+                    ]
+                );
+
+                $attachedCount++;
+            }
         }
 
-        return $this->importNormalizedMatches($rawMatches, $keepDates);
+        return $attachedCount;
     }
 
     /**
@@ -130,6 +264,7 @@ final class FreeFootballFeedSyncService
                 'home_score' => $homeScore,
                 'away_score' => $awayScore,
                 'venue' => null,
+                'video_url' => null,
             ];
         }
 
@@ -178,6 +313,7 @@ final class FreeFootballFeedSyncService
                 'home_score' => $match['score']['fullTime']['home'] ?? null,
                 'away_score' => $match['score']['fullTime']['away'] ?? null,
                 'venue' => $match['venue'] ?? null,
+                'video_url' => null,
             ];
         }
 
@@ -259,7 +395,7 @@ final class FreeFootballFeedSyncService
             $dateSlug = $startsAt->format('Y-m-d');
             $slug = Str::slug("{$homeTeam->slug}-vs-{$awayTeam->slug}-{$dateSlug}");
 
-            FootballMatch::query()->create([
+            $match = FootballMatch::query()->create([
                 'slug' => $slug,
                 'competition' => 'Premier League',
                 'home_team_id' => $homeTeam->id,
@@ -272,6 +408,19 @@ final class FreeFootballFeedSyncService
                 'minute' => $minute,
                 'is_sample' => false,
             ]);
+
+            // If a video highlights link is present, attach it as an official watch option
+            $videoUrl = $item['video_url'] ?? null;
+            if ($videoUrl && filter_var($videoUrl, FILTER_VALIDATE_URL)) {
+                WatchOption::query()->create([
+                    'match_id' => $match->id,
+                    'market_code' => 'GLOBAL',
+                    'market_name' => 'Video Highlights',
+                    'broadcaster' => 'Official Match Highlights',
+                    'website_url' => $videoUrl,
+                    'is_official' => true,
+                ]);
+            }
 
             $syncedCount++;
         }

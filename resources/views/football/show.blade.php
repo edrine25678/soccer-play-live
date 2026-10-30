@@ -70,6 +70,15 @@
                     Check watch options
                     <span aria-hidden="true">→</span>
                 </a>
+            @elseif ($fixture->status === 'finished')
+                @php($highlightOption = $watchOptions->first(fn ($o) => str_contains(strtolower($o->broadcaster), 'highlight') || str_contains(strtolower($o->market_name), 'highlight')))
+                @if ($highlightOption)
+                    <a class="button button-lime watch-primary-button" href="{{ $highlightOption->website_url }}" target="_blank" rel="noopener noreferrer">
+                        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m9 6 10 6-10 6V6Z" fill="currentColor"></path></svg>
+                        Watch match highlights
+                        <span aria-hidden="true">↗</span>
+                    </a>
+                @endif
             @endif
 
             @if ($watchOptions->isNotEmpty())
