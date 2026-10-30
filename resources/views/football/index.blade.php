@@ -4,9 +4,20 @@
 
 @section('content')
     @php
-        $dayOptions = $isResults
-            ? collect(range(0, 5))->map(fn (int $offset) => now()->startOfDay()->subDays($offset))
+        $matchDates = \Domain\Football\Models\FootballMatch::query()
+            ->when($isResults, fn ($q) => $q->where('status', 'finished'))
+            ->when(! $isResults, fn ($q) => $q->whereIn('status', ['scheduled', 'live']))
+            ->selectRaw('DATE(starts_at) as m_date')
+            ->distinct()
+            ->orderBy('m_date', $isResults ? 'desc' : 'asc')
+            ->limit(6)
+            ->pluck('m_date')
+            ->map(fn ($d) => \Illuminate\Support\Carbon::parse($d)->startOfDay());
+
+        $dayOptions = $matchDates->isNotEmpty()
+            ? $matchDates
             : collect(range(0, 5))->map(fn (int $offset) => now()->startOfDay()->addDays($offset));
+
         $headingDate = $selectedDate
             ? \Illuminate\Support\Carbon::parse($selectedDate)->translatedFormat('l, j F')
             : 'All matchdays';

@@ -12,8 +12,7 @@ Artisan::command('football:sync
     {--source=all : API provider: all, football-data, api-football, thesportsdb, or openfootball} 
     {--season= : Season (e.g. 2024 / 2024-25 for OpenFootball/API-Football, 2024-2025 for TheSportsDB)} 
     {--key= : API key for football-data.org or api-football.com} 
-    {--limit=30 : Maximum number of matches to import} 
-    {--keep-dates : Keep exact raw calendar dates without active matchday projection}
+    {--limit=40 : Maximum number of matches to import} 
     {--highlights : Fetch video highlights from TheSportsDB eventshighlights.php}
     {--date= : Specific date for highlights (YYYY-MM-DD)}
     {--league=4328 : League ID filter for highlights (4328 is Premier League)}
@@ -21,7 +20,6 @@ Artisan::command('football:sync
 function (FreeFootballFeedSyncService $syncService) {
     $source = strtolower((string) $this->option('source'));
     $limit = (int) $this->option('limit');
-    $keepDates = (bool) $this->option('keep-dates');
     $wantHighlights = (bool) $this->option('highlights');
     $date = (string) $this->option('date');
     $league = (string) $this->option('league');
@@ -46,7 +44,7 @@ function (FreeFootballFeedSyncService $syncService) {
                 $this->line('Get a free key at: https://www.football-data.org/client/register');
                 return 1;
             }
-            $total = $syncService->syncFromFootballData($apiKey, $limit, $keepDates);
+            $total = $syncService->syncFromFootballData($apiKey, $limit);
         } elseif ($source === 'api-football') {
             $apiKey = (string) ($this->option('key') ?: config('football.api_football_key'));
             if (! $apiKey) {
@@ -55,24 +53,24 @@ function (FreeFootballFeedSyncService $syncService) {
                 return 1;
             }
             $season = (string) ($this->option('season') ?: '2024');
-            $total = $syncService->syncFromApiFootball($apiKey, $season, $limit, $keepDates);
+            $total = $syncService->syncFromApiFootball($apiKey, $season, $limit);
         } elseif ($source === 'openfootball') {
             $season = (string) ($this->option('season') ?: '2024-25');
-            $total = $syncService->syncFromOpenFootball($season, $limit, $keepDates);
+            $total = $syncService->syncFromOpenFootball($season, $limit);
         } elseif ($source === 'thesportsdb') {
             $season = (string) ($this->option('season') ?: '2024-2025');
-            $total = $syncService->syncFromTheSportsDb($season, $limit, $keepDates);
+            $total = $syncService->syncFromTheSportsDb($season, $limit);
         } else {
             // Auto-detect configured API key with prioritized fallback
             if (config('football.football_data_api_key')) {
                 $this->line('-> Syncing from configured football-data.org API key...');
-                $total = $syncService->syncFromFootballData(config('football.football_data_api_key'), $limit, $keepDates);
+                $total = $syncService->syncFromFootballData(config('football.football_data_api_key'), $limit);
             } elseif (config('football.api_football_key')) {
                 $this->line('-> Syncing from configured API-Football key...');
-                $total = $syncService->syncFromApiFootball(config('football.api_football_key'), '2024', $limit, $keepDates);
+                $total = $syncService->syncFromApiFootball(config('football.api_football_key'), '2024', $limit);
             } else {
                 $this->line('-> Syncing official 2024-25 Premier League clubs and fixtures from OpenFootball...');
-                $total = $syncService->syncFromOpenFootball('2024-25', $limit, $keepDates);
+                $total = $syncService->syncFromOpenFootball('2024-25', $limit);
             }
         }
 

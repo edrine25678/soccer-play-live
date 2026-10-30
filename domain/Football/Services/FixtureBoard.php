@@ -21,18 +21,14 @@ final class FixtureBoard
             $query->where('status', 'finished');
         } elseif ($status === 'live') {
             $query->where('status', 'live');
+        } elseif ($status === 'scheduled') {
+            $query->where('status', 'scheduled');
         } else {
+            // By default on fixtures view, show live and scheduled matches
             $query->where(function (Builder $query): void {
-                $query->where('status', 'live')->orWhere(
-                    fn (Builder $scheduled): Builder => $scheduled
-                        ->where('status', 'scheduled')
-                        ->where('starts_at', '>=', now()),
-                );
+                $query->where('status', 'live')
+                    ->orWhere('status', 'scheduled');
             });
-
-            if ($status === 'scheduled') {
-                $query->where('status', 'scheduled');
-            }
         }
 
         if ($date !== null) {
