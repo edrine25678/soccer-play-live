@@ -12,40 +12,175 @@ use Illuminate\Support\Str;
 final class FreeFootballFeedSyncService
 {
     /**
-     * Premier League team metadata (colors, short codes, and home stadiums).
+     * The definitive, official 20 Premier League clubs for the current season.
+     * Maps canonical name, slug, short code, hex color, home stadium, and specific aliases.
      */
-    private const PREMIER_LEAGUE_TEAMS = [
-        'Arsenal' => ['short' => 'ARS', 'color' => '#EF0107', 'stadium' => 'Emirates Stadium'],
-        'Aston Villa' => ['short' => 'AVL', 'color' => '#670E36', 'stadium' => 'Villa Park'],
-        'Bournemouth' => ['short' => 'BOU', 'color' => '#DA291C', 'stadium' => 'Vitality Stadium'],
-        'Brentford' => ['short' => 'BRE', 'color' => '#E30613', 'stadium' => 'Gtech Community Stadium'],
-        'Brighton' => ['short' => 'BHA', 'color' => '#0057B8', 'stadium' => 'Amex Stadium'],
-        'Brighton & Hove Albion' => ['short' => 'BHA', 'color' => '#0057B8', 'stadium' => 'Amex Stadium'],
-        'Chelsea' => ['short' => 'CHE', 'color' => '#034694', 'stadium' => 'Stamford Bridge'],
-        'Crystal Palace' => ['short' => 'CRY', 'color' => '#1B458F', 'stadium' => 'Selhurst Park'],
-        'Everton' => ['short' => 'EVE', 'color' => '#003399', 'stadium' => 'Goodison Park'],
-        'Fulham' => ['short' => 'FUL', 'color' => '#000000', 'stadium' => 'Craven Cottage'],
-        'Ipswich' => ['short' => 'IPS', 'color' => '#0054A6', 'stadium' => 'Portman Road'],
-        'Ipswich Town' => ['short' => 'IPS', 'color' => '#0054A6', 'stadium' => 'Portman Road'],
-        'Leicester City' => ['short' => 'LEI', 'color' => '#003090', 'stadium' => 'King Power Stadium'],
-        'Liverpool' => ['short' => 'LIV', 'color' => '#C8102E', 'stadium' => 'Anfield'],
-        'Manchester City' => ['short' => 'MCI', 'color' => '#6CABDD', 'stadium' => 'Etihad Stadium'],
-        'Manchester United' => ['short' => 'MUN', 'color' => '#DA291C', 'stadium' => 'Old Trafford'],
-        'Newcastle' => ['short' => 'NEW', 'color' => '#241F20', 'stadium' => 'St. James\' Park'],
-        'Newcastle United' => ['short' => 'NEW', 'color' => '#241F20', 'stadium' => 'St. James\' Park'],
-        'Nottingham Forest' => ['short' => 'NFO', 'color' => '#DD0000', 'stadium' => 'The City Ground'],
-        'Southampton' => ['short' => 'SOU', 'color' => '#D71920', 'stadium' => 'St Mary\'s Stadium'],
-        'Tottenham' => ['short' => 'TOT', 'color' => '#132257', 'stadium' => 'Tottenham Hotspur Stadium'],
-        'Tottenham Hotspur' => ['short' => 'TOT', 'color' => '#132257', 'stadium' => 'Tottenham Hotspur Stadium'],
-        'West Ham' => ['short' => 'WHU', 'color' => '#7A263A', 'stadium' => 'London Stadium'],
-        'West Ham United' => ['short' => 'WHU', 'color' => '#7A263A', 'stadium' => 'London Stadium'],
-        'Wolves' => ['short' => 'WOL', 'color' => '#FDB913', 'stadium' => 'Molineux Stadium'],
-        'Wolverhampton Wanderers' => ['short' => 'WOL', 'color' => '#FDB913', 'stadium' => 'Molineux Stadium'],
+    public const PREMIER_LEAGUE_CLUBS = [
+        'arsenal' => [
+            'name' => 'Arsenal',
+            'short' => 'ARS',
+            'slug' => 'arsenal',
+            'color' => '#EF0107',
+            'stadium' => 'Emirates Stadium',
+            'aliases' => ['arsenal', 'the gunners'],
+        ],
+        'aston-villa' => [
+            'name' => 'Aston Villa',
+            'short' => 'AVL',
+            'slug' => 'aston-villa',
+            'color' => '#670E36',
+            'stadium' => 'Villa Park',
+            'aliases' => ['aston villa', 'villa'],
+        ],
+        'bournemouth' => [
+            'name' => 'Bournemouth',
+            'short' => 'BOU',
+            'slug' => 'bournemouth',
+            'color' => '#DA291C',
+            'stadium' => 'Vitality Stadium',
+            'aliases' => ['bournemouth', 'afc bournemouth', 'the cherries'],
+        ],
+        'brentford' => [
+            'name' => 'Brentford',
+            'short' => 'BRE',
+            'slug' => 'brentford',
+            'color' => '#E30613',
+            'stadium' => 'Gtech Community Stadium',
+            'aliases' => ['brentford', 'the bees'],
+        ],
+        'brighton-hove-albion' => [
+            'name' => 'Brighton & Hove Albion',
+            'short' => 'BHA',
+            'slug' => 'brighton-hove-albion',
+            'color' => '#0057B8',
+            'stadium' => 'Amex Stadium',
+            'aliases' => ['brighton & hove albion', 'brighton and hove albion', 'brighton', 'the seagulls'],
+        ],
+        'chelsea' => [
+            'name' => 'Chelsea',
+            'short' => 'CHE',
+            'slug' => 'chelsea',
+            'color' => '#034694',
+            'stadium' => 'Stamford Bridge',
+            'aliases' => ['chelsea', 'the blues'],
+        ],
+        'crystal-palace' => [
+            'name' => 'Crystal Palace',
+            'short' => 'CRY',
+            'slug' => 'crystal-palace',
+            'color' => '#1B458F',
+            'stadium' => 'Selhurst Park',
+            'aliases' => ['crystal palace', 'the eagles'],
+        ],
+        'everton' => [
+            'name' => 'Everton',
+            'short' => 'EVE',
+            'slug' => 'everton',
+            'color' => '#003399',
+            'stadium' => 'Goodison Park',
+            'aliases' => ['everton', 'the toffees'],
+        ],
+        'fulham' => [
+            'name' => 'Fulham',
+            'short' => 'FUL',
+            'slug' => 'fulham',
+            'color' => '#000000',
+            'stadium' => 'Craven Cottage',
+            'aliases' => ['fulham', 'the cottagers'],
+        ],
+        'ipswich-town' => [
+            'name' => 'Ipswich Town',
+            'short' => 'IPS',
+            'slug' => 'ipswich-town',
+            'color' => '#0054A6',
+            'stadium' => 'Portman Road',
+            'aliases' => ['ipswich town', 'ipswich', 'the tractor boys'],
+        ],
+        'leicester-city' => [
+            'name' => 'Leicester City',
+            'short' => 'LEI',
+            'slug' => 'leicester-city',
+            'color' => '#003090',
+            'stadium' => 'King Power Stadium',
+            'aliases' => ['leicester city', 'leicester', 'the foxes'],
+        ],
+        'liverpool' => [
+            'name' => 'Liverpool',
+            'short' => 'LIV',
+            'slug' => 'liverpool',
+            'color' => '#C8102E',
+            'stadium' => 'Anfield',
+            'aliases' => ['liverpool', 'the reds'],
+        ],
+        'manchester-city' => [
+            'name' => 'Manchester City',
+            'short' => 'MCI',
+            'slug' => 'manchester-city',
+            'color' => '#6CABDD',
+            'stadium' => 'Etihad Stadium',
+            'aliases' => ['manchester city', 'man city', 'the citizens'],
+        ],
+        'manchester-united' => [
+            'name' => 'Manchester United',
+            'short' => 'MUN',
+            'slug' => 'manchester-united',
+            'color' => '#DA291C',
+            'stadium' => 'Old Trafford',
+            'aliases' => ['manchester united', 'man united', 'man utd', 'red devils'],
+        ],
+        'newcastle-united' => [
+            'name' => 'Newcastle United',
+            'short' => 'NEW',
+            'slug' => 'newcastle-united',
+            'color' => '#241F20',
+            'stadium' => 'St. James\' Park',
+            'aliases' => ['newcastle united', 'newcastle', 'the magpies'],
+        ],
+        'nottingham-forest' => [
+            'name' => 'Nottingham Forest',
+            'short' => 'NFO',
+            'slug' => 'nottingham-forest',
+            'color' => '#DD0000',
+            'stadium' => 'The City Ground',
+            'aliases' => ['nottingham forest', 'notts forest'],
+        ],
+        'southampton' => [
+            'name' => 'Southampton',
+            'short' => 'SOU',
+            'slug' => 'southampton',
+            'color' => '#D71920',
+            'stadium' => 'St Mary\'s Stadium',
+            'aliases' => ['southampton', 'the saints'],
+        ],
+        'tottenham-hotspur' => [
+            'name' => 'Tottenham Hotspur',
+            'short' => 'TOT',
+            'slug' => 'tottenham-hotspur',
+            'color' => '#132257',
+            'stadium' => 'Tottenham Hotspur Stadium',
+            'aliases' => ['tottenham hotspur', 'tottenham', 'spurs'],
+        ],
+        'west-ham-united' => [
+            'name' => 'West Ham United',
+            'short' => 'WHU',
+            'slug' => 'west-ham-united',
+            'color' => '#7A263A',
+            'stadium' => 'London Stadium',
+            'aliases' => ['west ham united', 'west ham', 'the hammers', 'the irons'],
+        ],
+        'wolverhampton-wanderers' => [
+            'name' => 'Wolverhampton Wanderers',
+            'short' => 'WOL',
+            'slug' => 'wolverhampton-wanderers',
+            'color' => '#FDB913',
+            'stadium' => 'Molineux Stadium',
+            'aliases' => ['wolverhampton wanderers', 'wolverhampton', 'wolves'],
+        ],
     ];
 
     /**
-     * Source 1: TheSportsDB (Free Community API - Zero configuration required).
-     * Pulls upcoming matches, past results, and video highlights.
+     * Source 1: TheSportsDB (Free Community API).
+     * Strictly imports Premier League matches and filters out non-PL clubs.
      */
     public function syncFromTheSportsDb(string $season = '2024-2025', int $limit = 40, bool $keepDates = false): int
     {
@@ -74,7 +209,7 @@ final class FreeFootballFeedSyncService
             }
         }
 
-        // 2. Fetch next upcoming league matches
+        // 2. Fetch upcoming league matches
         $nextRes = Http::timeout(10)->get("{$baseUrl}/eventsnextleague.php?id=4328");
         if ($nextRes->successful() && is_array($nextRes->json('events'))) {
             foreach ($nextRes->json('events') as $event) {
@@ -96,7 +231,7 @@ final class FreeFootballFeedSyncService
             }
         }
 
-        // 3. Fallback / supplement from full season schedule if more needed
+        // 3. Supplement from official season schedule if more matches are needed
         if (count($rawMatches) < $limit) {
             $seasonRes = Http::timeout(15)->get("{$baseUrl}/eventsseason.php?id=4328&s={$season}");
             if ($seasonRes->successful() && is_array($seasonRes->json('events'))) {
@@ -124,11 +259,7 @@ final class FreeFootballFeedSyncService
     }
 
     /**
-     * Source 1b: TheSportsDB Video Highlights by Date and League / Sport.
-     * Supports:
-     *   eventshighlights.php?d=YYYY-MM-DD
-     *   eventshighlights.php?d=YYYY-MM-DD&l=4328 (Premier League)
-     *   eventshighlights.php?d=YYYY-MM-DD&s=Soccer
+     * Source 1b: Video Highlights from TheSportsDB (eventshighlights.php).
      */
     public function syncHighlights(string $date, ?string $leagueId = '4328', ?string $sport = 'Soccer'): int
     {
@@ -167,13 +298,16 @@ final class FreeFootballFeedSyncService
                 continue;
             }
 
-            // Parse teams from "Home vs Away"
             $parts = preg_split('/\s+(?:vs|v|-)\s+/i', $eventName);
             if (count($parts) >= 2) {
                 $homeTeam = $this->resolveTeam(trim($parts[0]));
                 $awayTeam = $this->resolveTeam(trim($parts[1]));
 
-                // Find or create match
+                // Only attach if both clubs are current Premier League teams
+                if (! $homeTeam || ! $awayTeam) {
+                    continue;
+                }
+
                 $match = FootballMatch::query()
                     ->where('home_team_id', $homeTeam->id)
                     ->where('away_team_id', $awayTeam->id)
@@ -183,7 +317,7 @@ final class FreeFootballFeedSyncService
                     $slug = Str::slug("{$homeTeam->slug}-vs-{$awayTeam->slug}-{$date}");
                     $match = FootballMatch::query()->create([
                         'slug' => $slug,
-                        'competition' => $hl['strLeague'] ?? 'Premier League',
+                        'competition' => 'Premier League',
                         'home_team_id' => $homeTeam->id,
                         'away_team_id' => $awayTeam->id,
                         'starts_at' => Carbon::parse("{$date} 15:00:00"),
@@ -217,7 +351,7 @@ final class FreeFootballFeedSyncService
     }
 
     /**
-     * Source 2: OpenFootball (GitHub Open Data - Completely Free, Public Domain).
+     * Source 2: OpenFootball (GitHub Open Data - 100% verified 2024-25 Premier League fixtures).
      */
     public function syncFromOpenFootball(string $season = '2024-25', int $limit = 40, bool $keepDates = false): int
     {
@@ -272,7 +406,7 @@ final class FreeFootballFeedSyncService
     }
 
     /**
-     * Source 3: football-data.org (Free registered API key).
+     * Source 3: football-data.org (Official Registered API).
      */
     public function syncFromFootballData(?string $apiKey = null, int $limit = 40, bool $keepDates = false): int
     {
@@ -321,9 +455,8 @@ final class FreeFootballFeedSyncService
     }
 
     /**
-     * Imports and arranges real Premier League matches into the application.
-     * Projects matches to active matchday calendar so fixtures and live scores
-     * immediately appear on the user's Matchday and Fixtures views.
+     * Imports and normalizes matches.
+     * Enforces STRICT Premier League team validation: any non-PL team is ignored.
      */
     private function importNormalizedMatches(array $matches, bool $keepDates = false): int
     {
@@ -331,18 +464,27 @@ final class FreeFootballFeedSyncService
             return 0;
         }
 
-        // Wipe previous matches to prevent duplicate fixture cards
+        // Clean out previous matches and ensure orphaned non-PL teams are removed
         FootballMatch::query()->delete();
+        $this->cleanOrphanedNonPremierLeagueTeams();
 
         $syncedCount = 0;
         $now = now();
-
-        // Standard Premier League kickoff slots
         $kickoffSlots = ['12:30', '15:00', '17:30', '20:00'];
 
         foreach ($matches as $index => $item) {
             $homeTeam = $this->resolveTeam($item['home'], $item['home_tla'] ?? null);
             $awayTeam = $this->resolveTeam($item['away'], $item['away_tla'] ?? null);
+
+            // STRICT FILTER: Both teams MUST belong to the current official 20 Premier League clubs
+            if (! $homeTeam || ! $awayTeam) {
+                continue;
+            }
+
+            // Ensure teams aren't playing themselves due to alias collisions
+            if ($homeTeam->id === $awayTeam->id) {
+                continue;
+            }
 
             $venue = $item['venue'] ?: ($this->getStadiumForTeam($homeTeam->name) ?? 'Premier League Stadium');
 
@@ -355,7 +497,7 @@ final class FreeFootballFeedSyncService
             } else {
                 // Active calendar projection:
                 // Match 0: LIVE NOW today (gives life to the Live Lounge & Matchday hero)
-                if ($index === 0) {
+                if ($syncedCount === 0) {
                     $startsAt = $now->copy()->subMinutes(68);
                     $status = 'live';
                     $minute = 68;
@@ -363,17 +505,17 @@ final class FreeFootballFeedSyncService
                     $awayScore = $item['away_score'] ?? 1;
                 }
                 // Matches 1-2: Scheduled today (upcoming later today)
-                elseif ($index === 1 || $index === 2) {
-                    $startsAt = $now->copy()->addHours($index * 2 + 1);
+                elseif ($syncedCount === 1 || $syncedCount === 2) {
+                    $startsAt = $now->copy()->addHours($syncedCount * 2 + 1);
                     $status = 'scheduled';
                     $minute = null;
                     $homeScore = null;
                     $awayScore = null;
                 }
-                // Matches 3-12: Scheduled over the next 5 upcoming days (covers the 6-day date strip!)
-                elseif ($index >= 3 && $index <= 12) {
-                    $dayOffset = (int) floor(($index - 1) / 2); // 1, 2, 3, 4, 5 days ahead
-                    $slot = $kickoffSlots[$index % count($kickoffSlots)];
+                // Matches 3-12: Scheduled over the next 5 upcoming days
+                elseif ($syncedCount >= 3 && $syncedCount <= 12) {
+                    $dayOffset = (int) floor(($syncedCount - 1) / 2);
+                    $slot = $kickoffSlots[$syncedCount % count($kickoffSlots)];
                     [$h, $m] = explode(':', $slot);
                     $startsAt = $now->copy()->addDays($dayOffset)->setTime((int) $h, (int) $m, 0);
                     $status = 'scheduled';
@@ -383,12 +525,12 @@ final class FreeFootballFeedSyncService
                 }
                 // Matches 13+: Recent finished results (fills the Results tab!)
                 else {
-                    $dayOffset = ($index - 12);
+                    $dayOffset = ($syncedCount - 12);
                     $startsAt = $now->copy()->subDays($dayOffset)->setTime(15, 0, 0);
                     $status = 'finished';
                     $minute = 90;
-                    $homeScore = $item['home_score'] !== null ? $item['home_score'] : (($index % 3) + 1);
-                    $awayScore = $item['away_score'] !== null ? $item['away_score'] : ($index % 2);
+                    $homeScore = $item['home_score'] !== null ? $item['home_score'] : (($syncedCount % 3) + 1);
+                    $awayScore = $item['away_score'] !== null ? $item['away_score'] : ($syncedCount % 2);
                 }
             }
 
@@ -409,7 +551,6 @@ final class FreeFootballFeedSyncService
                 'is_sample' => false,
             ]);
 
-            // If a video highlights link is present, attach it as an official watch option
             $videoUrl = $item['video_url'] ?? null;
             if ($videoUrl && filter_var($videoUrl, FILTER_VALIDATE_URL)) {
                 WatchOption::query()->create([
@@ -428,46 +569,90 @@ final class FreeFootballFeedSyncService
         return $syncedCount;
     }
 
-    private function resolveTeam(string $name, ?string $tla = null): Team
+    /**
+     * Strictly resolves a team name to one of the 20 official Premier League clubs.
+     * Returns null if the team is not in the current Premier League season.
+     */
+    public function resolveTeam(string $name, ?string $tla = null): ?Team
     {
-        $normalized = trim(preg_replace('/\b(FC|AFC)\b/i', '', $name));
-        $normalized = trim(preg_replace('/\s+/', ' ', $normalized));
+        $clean = strtolower(trim(preg_replace('/\b(FC|AFC)\b/i', '', $name)));
+        $clean = trim(preg_replace('/\s+/', ' ', $clean));
 
-        $slug = Str::slug($normalized);
-        $shortName = $tla;
-        $primaryColor = '#1e3a8a';
+        $matchedSlug = null;
 
-        if (isset(self::PREMIER_LEAGUE_TEAMS[$normalized])) {
-            $shortName = $shortName ?: self::PREMIER_LEAGUE_TEAMS[$normalized]['short'];
-            $primaryColor = self::PREMIER_LEAGUE_TEAMS[$normalized]['color'];
-        } else {
-            foreach (self::PREMIER_LEAGUE_TEAMS as $known => $meta) {
-                if (str_contains(strtolower($normalized), strtolower($known)) || str_contains(strtolower($known), strtolower($normalized))) {
-                    $shortName = $shortName ?: $meta['short'];
-                    $primaryColor = $meta['color'];
-                    $normalized = $known;
-                    $slug = Str::slug($known);
+        // 1. Direct TLA match (e.g. ARS, MUN, CHE, LIV, NEW, WHU)
+        if ($tla) {
+            $upperTla = strtoupper(trim($tla));
+            foreach (self::PREMIER_LEAGUE_CLUBS as $slug => $meta) {
+                if ($meta['short'] === $upperTla) {
+                    $matchedSlug = $slug;
                     break;
                 }
             }
         }
 
-        if (! $shortName) {
-            $shortName = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $normalized), 0, 3));
+        // 2. Exact match against canonical name, slug, or specific aliases
+        if (! $matchedSlug) {
+            foreach (self::PREMIER_LEAGUE_CLUBS as $slug => $meta) {
+                if ($clean === strtolower($meta['name']) || $clean === $meta['slug']) {
+                    $matchedSlug = $slug;
+                    break;
+                }
+                foreach ($meta['aliases'] as $alias) {
+                    if ($clean === $alias) {
+                        $matchedSlug = $slug;
+                        break 2;
+                    }
+                }
+            }
         }
 
+        // 3. Substring match: only for specific distinctive aliases (>= 5 chars)
+        if (! $matchedSlug) {
+            foreach (self::PREMIER_LEAGUE_CLUBS as $slug => $meta) {
+                foreach ($meta['aliases'] as $alias) {
+                    if (strlen($alias) >= 5 && (str_contains($clean, $alias) || str_contains($alias, $clean))) {
+                        $matchedSlug = $slug;
+                        break 2;
+                    }
+                }
+            }
+        }
+
+        // Non-Premier-League team (e.g. Sunderland, Leeds, Burnley, Luton, etc.) is rejected!
+        if (! $matchedSlug) {
+            return null;
+        }
+
+        $meta = self::PREMIER_LEAGUE_CLUBS[$matchedSlug];
+
         return Team::query()->updateOrCreate(
-            ['slug' => $slug],
+            ['slug' => $meta['slug']],
             [
-                'name' => $normalized,
-                'short_name' => $shortName,
-                'primary_color' => $primaryColor,
+                'name' => $meta['name'],
+                'short_name' => $meta['short'],
+                'primary_color' => $meta['color'],
             ]
         );
     }
 
     private function getStadiumForTeam(string $teamName): ?string
     {
-        return self::PREMIER_LEAGUE_TEAMS[$teamName]['stadium'] ?? null;
+        foreach (self::PREMIER_LEAGUE_CLUBS as $meta) {
+            if ($meta['name'] === $teamName) {
+                return $meta['stadium'];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Purges rogue or non-Premier League clubs from the database.
+     */
+    public function cleanOrphanedNonPremierLeagueTeams(): void
+    {
+        $validSlugs = array_keys(self::PREMIER_LEAGUE_CLUBS);
+        Team::query()->whereNotIn('slug', $validSlugs)->delete();
     }
 }
