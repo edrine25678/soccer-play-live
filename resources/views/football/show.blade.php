@@ -16,7 +16,14 @@
         <div class="match-detail-topline"><span>{{ $fixture->competition }}</span>@if ($fixture->status === 'live')<span class="live-pill"><span></span>LIVE NOW</span>@elseif ($fixture->status === 'finished')<span class="finished-pill">FULL TIME</span>@else<span class="feature-kickoff">{{ $fixture->starts_at->translatedFormat('l, j F · H:i') }}</span>@endif</div>
         <div class="detail-scoreboard">
             <div class="detail-team">
-                <span class="team-crest detail-crest" style="--team-color: {{ $fixture->homeTeam->primary_color }}">{{ $fixture->homeTeam->short_name }}</span>
+                <span class="team-crest detail-crest" style="--team-color: {{ $fixture->homeTeam->primary_color }}">
+                    @if ($fixture->homeTeam->crest_url)
+                        <img class="crest-img" src="{{ $fixture->homeTeam->crest_url }}" alt="{{ $fixture->homeTeam->name }}" loading="eager" onerror="this.style.display='none'; this.parentElement.classList.add('has-no-crest'); if (this.nextElementSibling) this.nextElementSibling.style.display='inline';">
+                        <span class="crest-fallback" style="display: none;">{{ $fixture->homeTeam->short_name }}</span>
+                    @else
+                        {{ $fixture->homeTeam->short_name }}
+                    @endif
+                </span>
                 <strong>{{ $fixture->homeTeam->name }}</strong>
                 <span>HOME</span>
             </div>
@@ -30,7 +37,14 @@
                 @endif
             </div>
             <div class="detail-team">
-                <span class="team-crest detail-crest" style="--team-color: {{ $fixture->awayTeam->primary_color }}">{{ $fixture->awayTeam->short_name }}</span>
+                <span class="team-crest detail-crest" style="--team-color: {{ $fixture->awayTeam->primary_color }}">
+                    @if ($fixture->awayTeam->crest_url)
+                        <img class="crest-img" src="{{ $fixture->awayTeam->crest_url }}" alt="{{ $fixture->awayTeam->name }}" loading="eager" onerror="this.style.display='none'; this.parentElement.classList.add('has-no-crest'); if (this.nextElementSibling) this.nextElementSibling.style.display='inline';">
+                        <span class="crest-fallback" style="display: none;">{{ $fixture->awayTeam->short_name }}</span>
+                    @else
+                        {{ $fixture->awayTeam->short_name }}
+                    @endif
+                </span>
                 <strong>{{ $fixture->awayTeam->name }}</strong>
                 <span>AWAY</span>
             </div>

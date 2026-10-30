@@ -4,7 +4,9 @@
 
 @section('content')
     @php
-        $dayOptions = collect(range(0, 5))->map(fn (int $offset) => now()->startOfDay()->addDays($offset));
+        $dayOptions = $isResults
+            ? collect(range(0, 5))->map(fn (int $offset) => now()->startOfDay()->subDays($offset))
+            : collect(range(0, 5))->map(fn (int $offset) => now()->startOfDay()->addDays($offset));
         $headingDate = $selectedDate
             ? \Illuminate\Support\Carbon::parse($selectedDate)->translatedFormat('l, j F')
             : 'All matchdays';
@@ -24,6 +26,7 @@
         </div>
     </div>
 
+    @if ($matches->contains(fn ($m) => $m->is_sample) || $liveMatches->contains(fn ($m) => $m->is_sample))
     <section class="intro-banner" aria-label="Fixture schedule information">
         <div class="intro-banner-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.7"></circle><path d="M12 11v5m0-8h.01" stroke="currentColor" stroke-linecap="round" stroke-width="2"></path></svg>
@@ -34,6 +37,7 @@
         </div>
         <span class="sample-stamp">DEMO DATA</span>
     </section>
+    @endif
 
     <div class="content-grid">
         <section class="primary-column" aria-label="{{ $isResults ? 'Match results' : 'Upcoming fixtures' }}">
@@ -62,7 +66,14 @@
 
                     <div class="feature-matchup">
                         <div class="feature-team feature-home">
-                            <span class="team-crest feature-crest" style="--team-color: {{ $featured->homeTeam->primary_color }}">{{ $featured->homeTeam->short_name }}</span>
+                            <span class="team-crest feature-crest" style="--team-color: {{ $featured->homeTeam->primary_color }}">
+                                @if ($featured->homeTeam->crest_url)
+                                    <img class="crest-img" src="{{ $featured->homeTeam->crest_url }}" alt="{{ $featured->homeTeam->name }}" loading="eager" onerror="this.style.display='none'; this.parentElement.classList.add('has-no-crest'); if (this.nextElementSibling) this.nextElementSibling.style.display='inline';">
+                                    <span class="crest-fallback" style="display: none;">{{ $featured->homeTeam->short_name }}</span>
+                                @else
+                                    {{ $featured->homeTeam->short_name }}
+                                @endif
+                            </span>
                             <span class="feature-team-name">{{ $featured->homeTeam->name }}</span>
                         </div>
                         <div class="feature-score">
@@ -73,7 +84,14 @@
                             @endif
                         </div>
                         <div class="feature-team feature-away">
-                            <span class="team-crest feature-crest" style="--team-color: {{ $featured->awayTeam->primary_color }}">{{ $featured->awayTeam->short_name }}</span>
+                            <span class="team-crest feature-crest" style="--team-color: {{ $featured->awayTeam->primary_color }}">
+                                @if ($featured->awayTeam->crest_url)
+                                    <img class="crest-img" src="{{ $featured->awayTeam->crest_url }}" alt="{{ $featured->awayTeam->name }}" loading="eager" onerror="this.style.display='none'; this.parentElement.classList.add('has-no-crest'); if (this.nextElementSibling) this.nextElementSibling.style.display='inline';">
+                                    <span class="crest-fallback" style="display: none;">{{ $featured->awayTeam->short_name }}</span>
+                                @else
+                                    {{ $featured->awayTeam->short_name }}
+                                @endif
+                            </span>
                             <span class="feature-team-name">{{ $featured->awayTeam->name }}</span>
                         </div>
                     </div>
@@ -144,12 +162,26 @@
                             </a>
                             <a class="fixture-teams" href="{{ route('matches.show', $fixture) }}" aria-label="{{ $fixture->homeTeam->name }} versus {{ $fixture->awayTeam->name }}">
                                 <span class="fixture-team-line">
-                                    <span class="team-crest mini-crest" style="--team-color: {{ $fixture->homeTeam->primary_color }}">{{ $fixture->homeTeam->short_name }}</span>
+                                    <span class="team-crest mini-crest" style="--team-color: {{ $fixture->homeTeam->primary_color }}">
+                                        @if ($fixture->homeTeam->crest_url)
+                                            <img class="crest-img" src="{{ $fixture->homeTeam->crest_url }}" alt="{{ $fixture->homeTeam->name }}" loading="lazy" onerror="this.style.display='none'; this.parentElement.classList.add('has-no-crest'); if (this.nextElementSibling) this.nextElementSibling.style.display='inline';">
+                                            <span class="crest-fallback" style="display: none;">{{ $fixture->homeTeam->short_name }}</span>
+                                        @else
+                                            {{ $fixture->homeTeam->short_name }}
+                                        @endif
+                                    </span>
                                     <span class="fixture-team-name">{{ $fixture->homeTeam->name }}</span>
                                     @if ($fixture->status !== 'scheduled')<strong class="row-score">{{ $fixture->home_score ?? '–' }}</strong>@endif
                                 </span>
                                 <span class="fixture-team-line">
-                                    <span class="team-crest mini-crest" style="--team-color: {{ $fixture->awayTeam->primary_color }}">{{ $fixture->awayTeam->short_name }}</span>
+                                    <span class="team-crest mini-crest" style="--team-color: {{ $fixture->awayTeam->primary_color }}">
+                                        @if ($fixture->awayTeam->crest_url)
+                                            <img class="crest-img" src="{{ $fixture->awayTeam->crest_url }}" alt="{{ $fixture->awayTeam->name }}" loading="lazy" onerror="this.style.display='none'; this.parentElement.classList.add('has-no-crest'); if (this.nextElementSibling) this.nextElementSibling.style.display='inline';">
+                                            <span class="crest-fallback" style="display: none;">{{ $fixture->awayTeam->short_name }}</span>
+                                        @else
+                                            {{ $fixture->awayTeam->short_name }}
+                                        @endif
+                                    </span>
                                     <span class="fixture-team-name">{{ $fixture->awayTeam->name }}</span>
                                     @if ($fixture->status !== 'scheduled')<strong class="row-score">{{ $fixture->away_score ?? '–' }}</strong>@endif
                                 </span>
@@ -198,12 +230,26 @@
                         <span class="live-match-league">{{ $liveFixture->competition }}{{ $liveFixture->is_sample ? ' · DEMO' : '' }}</span>
                         <span class="live-scoreboard">
                             <span class="live-side">
-                                <span class="team-crest live-crest" style="--team-color: {{ $liveFixture->homeTeam->primary_color }}">{{ $liveFixture->homeTeam->short_name }}</span>
+                                <span class="team-crest live-crest" style="--team-color: {{ $liveFixture->homeTeam->primary_color }}">
+                                    @if ($liveFixture->homeTeam->crest_url)
+                                        <img class="crest-img" src="{{ $liveFixture->homeTeam->crest_url }}" alt="{{ $liveFixture->homeTeam->name }}" loading="lazy" onerror="this.style.display='none'; this.parentElement.classList.add('has-no-crest'); if (this.nextElementSibling) this.nextElementSibling.style.display='inline';">
+                                        <span class="crest-fallback" style="display: none;">{{ $liveFixture->homeTeam->short_name }}</span>
+                                    @else
+                                        {{ $liveFixture->homeTeam->short_name }}
+                                    @endif
+                                </span>
                                 <span>{{ $liveFixture->homeTeam->name }}</span>
                             </span>
                             <strong data-live-score="{{ $liveFixture->slug }}">{{ $liveFixture->home_score ?? 0 }} <i>:</i> {{ $liveFixture->away_score ?? 0 }}</strong>
                             <span class="live-side live-side-away">
-                                <span class="team-crest live-crest" style="--team-color: {{ $liveFixture->awayTeam->primary_color }}">{{ $liveFixture->awayTeam->short_name }}</span>
+                                <span class="team-crest live-crest" style="--team-color: {{ $liveFixture->awayTeam->primary_color }}">
+                                    @if ($liveFixture->awayTeam->crest_url)
+                                        <img class="crest-img" src="{{ $liveFixture->awayTeam->crest_url }}" alt="{{ $liveFixture->awayTeam->name }}" loading="lazy" onerror="this.style.display='none'; this.parentElement.classList.add('has-no-crest'); if (this.nextElementSibling) this.nextElementSibling.style.display='inline';">
+                                        <span class="crest-fallback" style="display: none;">{{ $liveFixture->awayTeam->short_name }}</span>
+                                    @else
+                                        {{ $liveFixture->awayTeam->short_name }}
+                                    @endif
+                                </span>
                                 <span>{{ $liveFixture->awayTeam->name }}</span>
                             </span>
                         </span>
@@ -221,19 +267,19 @@
             </section>
 
             <section class="guide-card">
-                <div class="guide-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none"><path d="M12 3.5v2m0 13v2M3.5 12h2m13 0h2M6 6l1.5 1.5m9 9L18 18m0-12-1.5 1.5m-9 9L6 18" stroke="currentColor" stroke-linecap="round" stroke-width="1.7"></path><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.7"></circle></svg>
-                </div>
-                <span class="guide-label">THE SMART SUPPORTER</span>
-                <h3>First the fixtures.<br>Then the good stuff.</h3>
-                <p>Find a match, check its details and follow a verified broadcaster in your region.</p>
-                <a href="{{ route('fixtures.index') }}">Find your next match <span aria-hidden="true">→</span></a>
+                <span class="guide-card-icon" aria-hidden="true">💡</span>
+                <span class="guide-card-kicker">THE SMART WATCHER</span>
+                <h2>First the fixtures.<br>Then the good stuff.</h2>
+                <p>Find a match, check its details and follow verified broadcasts for your region.</p>
+                <a href="{{ route('fixtures.index') }}">Find your next match <span aria-hidden="true">↗</span></a>
             </section>
 
-            <section class="quick-facts">
-                <div><span class="quick-fact-icon">01</span><div><strong>Local kick-off times</strong><span>Shown in {{ config('app.timezone') }}</span></div></div>
-                <div><span class="quick-fact-icon">02</span><div><strong>Live score updates</strong><span>Refresh every 30 seconds</span></div></div>
-                <div><span class="quick-fact-icon">03</span><div><strong>Official streams only</strong><span>No unauthorised broadcasts</span></div></div>
+            <section class="guide-card">
+                <ol class="guide-steps">
+                    <li><span class="step-num">01</span><div><strong>Local kick-off times</strong><span>Shown in {{ config('app.timezone') }}</span></div></li>
+                    <li><span class="step-num">02</span><div><strong>Live score updates</strong><span>Refresh every 30 seconds</span></div></li>
+                    <li><span class="step-num">03</span><div><strong>Official streams only</strong><span>No third-party video embeds</span></div></li>
+                </ol>
             </section>
         </aside>
     </div>

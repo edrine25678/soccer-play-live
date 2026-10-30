@@ -40,6 +40,27 @@ Open the address printed by `php artisan serve` (normally `http://127.0.0.1:8000
 
 The seed command creates explicitly labelled example Premier League fixtures and one example result. Fixture dates are relative to the day the database is seeded. Seeded scores and schedules are not current real-world data.
 
+## Syncing Real Fixtures with Free & Open APIs
+
+You can pull real Premier League fixtures into Touchline using free sports data sources:
+
+1. **TheSportsDB (Free community tier - Zero configuration required):**
+   ```powershell
+   php artisan football:sync --source=thesportsdb
+   ```
+   Immediately fetches real Premier League fixtures and team data without needing an API key.
+
+2. **OpenFootball (GitHub Open Data - Public domain, zero rate limits):**
+   ```powershell
+   php artisan football:sync --source=openfootball
+   ```
+   Syncs full season schedules (2024-25 and 2025-26) with venues, scores, and matchday rounds.
+
+3. **Sync All Free Sources:**
+   ```powershell
+   php artisan football:sync --source=all
+   ```
+
 ## Connecting a real fixture provider
 
 No fixtures, live scores, or broadcaster schedules are fetched from an unofficial website. Connect a data provider that you are licensed to use and POST its normalized match data to `POST /api/fixture-feed`. Sign the **exact JSON request body** with the server-only `FOOTBALL_FEED_SECRET`:
